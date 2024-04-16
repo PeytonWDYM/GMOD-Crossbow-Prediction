@@ -11,8 +11,6 @@ hook.Remove("InitPostEntity", "CrossbowPredictionInit")
 -----------------------------------------------------
 -- Made by Peyton
 
-
--- The ConVar defaults can be changed from here!
 local vars = {
     crossbowPred_enabled = {
         value = 1,
@@ -190,7 +188,6 @@ end
 hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
     local ply = LocalPlayer()
 
-    -- physenv doesnt load, so, we use sv_gravity instead. It gets changed to physenv.GetGravity() as soon as you pull out the crossbow however.
     local sv_gravity = Vector(0, 0, -GetConVar("sv_gravity"):GetInt())
     local boltSims = {
         simulated_shot = {
@@ -310,14 +307,13 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
     
     
             local function bounceBolt(vel, normal, predictedPos, timeStep)
-                
+    
                 local data = boltSims[ent]
                 local speed = vel:Length()
                 local vecDir = vel:GetNormalized()
                 local dot = vecDir:Dot(-normal)
-
+            
                 if dot < 0.5 and speed > 100 then
-                    
                     local reflection = 2 * normal * dot + vecDir
                     
                     local newVel = (reflection * speed) * 0.75
@@ -400,21 +396,24 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
                 t = t + simStep
             end
         end
+
+
+        if GetConVar("crossbowPred_receivePos"):GetBool() then
+            net.Receive("CrossbowThing", function(len)
+                local lastPos = net.ReadVector()
+                local id = net.ReadUInt(32)
+                if id == ply:UserID() then return end
+                net_boltSims[id] = lastPos
+            end)
+        end
     
     
     
         if IsValid(wep) and wep:GetClass() == "weapon_crossbow" then
-    
-            if GetConVar("crossbowPred_receivePos"):GetBool()  then 
-                net.Receive("CrossbowThing", function(len)
-                    local lastPos = net.ReadVector()
-                    local id = net.ReadUInt(32)
-                    if id == ply:UserID() then return end
-                    net_boltSims[id] = lastPos
-                end)
-            end
+            -- do server stuff here (we are the client)
     
             local shotData = boltSims["simulated_shot"]
+            -- reset all values!
             if shotData.persist then
                 for ent, data in pairs(boltSims) do 
                     data.entity = ent
@@ -446,7 +445,6 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
                     end
                 end
             else 
-                -- reset all values!
                 boltSims["simulated_shot"] = {
                     gravity = physenv.GetGravity() * 0.05,
                     fullGravityApplied = false,
@@ -569,10 +567,13 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
     
     
     
+        -- check if there are any old bolt simulations that need to be removed
+    
+    
+    
     
     
         if GetConVar("crossbowPred_receivePos"):GetBool() then
-            if #net_boltSims < 1 then return end
             for id, pos in pairs(net_boltSims) do
                 render.DrawWireframeBox(pos, Angle(0, 0, 0), Vector(-15,-15,-15), Vector(15,15,15), Color(
                     GetConVar("crossbowPred_colorRed_otherPlayers"):GetInt(),
