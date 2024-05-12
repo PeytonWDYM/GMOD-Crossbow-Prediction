@@ -25,6 +25,7 @@ timer.Create("SendBoltSims", GetConVar("crossbowPred_net_update"):GetInt(), 0, f
         net.Start("CrossbowThing")
         net.WriteVector(v)
         net.WriteUInt(k, 32)
+        -- maybe send a config to the server listing whether they want to receive it or not (basically sending to selected clients), maybe don't use net.Broadcast()?
         net.Broadcast()
         PrintTable(boltSims)
     end
