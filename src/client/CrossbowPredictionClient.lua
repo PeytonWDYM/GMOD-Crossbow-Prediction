@@ -307,6 +307,9 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
     
     
             local function bounceBolt(vel, normal, predictedPos, timeStep)
+
+                -- https://github.com/ValveSoftware/source-sdk-2013/blob/0d8dceea4310fde5706b3ce1c70609d72a38efdf/sp/src/game/server/hl2/weapon_crossbow.cpp#L322
+                -- :D
     
                 local data = boltSims[ent]
                 local speed = vel:Length()
