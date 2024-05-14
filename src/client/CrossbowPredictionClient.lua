@@ -55,23 +55,23 @@ local vars = {
         info = "The color of the bolt prediction."
     },
     crossbowPred_serverTickPred = {
-        value = 1,
+        value = 0,
         info = "Use the server's tickrate to predict the bolt's trajectory. (Probably the best accuracy but can be jittery if the server has an unstable tickrate)"
     },
     crossbowPred_simstep = {
-        value = 0,
+        value = 100,
         info = "The higher the interval, the better the simulation of a crossbow bolt (More accurate but less performance). No effect whenever we use the server's tickrate to predict the bolt's trajectory."
     },
     crossbowPred_simtime = {
-        value = 10,
+        value = 5,
         info = "The amount of time the bolt will be simulated for in seconds. (NOT ALWAYS ACURATE!)"
     },
     crossbowPred_maxsim = {
-        value = 7,
+        value = 5,
         info = "The amount of bolt simulations that can be shown at once."
     },
     crossbowPred_followBolt = {
-        value = 1,
+        value = 0,
         info = "Follows the bolt itself when you shoot it."
     },
     crossbowPred_followBolt_popoutBox = {
@@ -94,20 +94,36 @@ local vars = {
         value = 0,
         info = "The offset of the bolt on the Z axis."
     },
+    crossbowPred_followBoltAngleOffsetPitch = {
+        value = 0,
+        info = "The offset of the bolt on the pitch axis."
+    },
+    crossbowPred_followBoltAngleOffsetYaw = {
+        value = 0,
+        info = "The offset of the bolt on the yaw axis."
+    },
+    crossbowPred_followBoltAngleOffsetRoll = {
+        value = 0,
+        info = "The offset of the bolt on the roll axis."
+    },
+    crossbowPred_followBolt_fov = {
+        value = 90,
+        info = "The field of view of the camera that follows the bolt."
+    },
     crossbowPred_sendPos = {
-        value = 1,
+        value = 0,
         info = "Sends the position of the bolt to the server to show to other players (Useful for your friends to see the bolt simulation too!)"
     },
     crossbowPred_receivePos = {
-        value = 1,
+        value = 0,
         info = "Receives the info of other player's bolt simulation. (Useful for seeing where your friends are shooting their bolts)"
     },
     crossbowPred_showLastPos = {
-        value = 1,
+        value = 0,
         info = "Shows the last position of the bolt."
     },
     crossbowPred_showHitPos = {
-        value = 1,
+        value = 0,
         info = "Shows the position where the bolt is predicted to hit a surface."
     },
     crossbowPred_showPredictedPos = {
@@ -115,69 +131,94 @@ local vars = {
         info = "Shows the predicted position of the bolt."
     },
     crossbowPred_showActualPos = {
-        value = 1,
+        value = 0,
         info = "Shows the actual position of the bolt."
     },
     crossbowPred_showInfo ={
-        value = 1,
+        value = 0,
         info = "Shows the total amount of bounces and the entity that was hit by the bolt"
     },
 
 }
 
+local panelElements = {
+
+}
+
+local toolMenuOpened = false
+
+
 hook.Add("PopulateToolMenu", "crossbowSettings", function()
     spawnmenu.AddToolMenuOption("Utilities", "Crossbow Prediction", "crossbowSettings", "Settings", "", "", function(panel)
-        panel:CheckBox("Enabled", "crossbowPred_enabled")
+        panelElements["crossbowPred_enabled"] = panel:CheckBox("Enabled", "crossbowPred_enabled")
 
         panel:Help("\n--- Color Settings ---")
-        panel:ColorPicker("Trajectory Color", "crossbowPred_colorRed_predPos", "crossbowPred_colorGreen_predPos", "crossbowPred_colorBlue_predPos")
-        panel:ColorPicker("Actual Trajectory Color", "crossbowPred_colorRed_actualPredPos", "crossbowPred_colorGreen_actualPredPos", "crossbowPred_colorBlue_actualPredPos")
-        panel:ColorPicker("Hit Position Color", "crossbowPred_colorRed_hitPos", "crossbowPred_colorGreen_hitPos", "crossbowPred_colorBlue_hitPos")
-        panel:ColorPicker("Last Position Color", "crossbowPred_colorRed_lastPos", "crossbowPred_colorGreen_lastPos", "crossbowPred_colorBlue_lastPos")
-        panel:ColorPicker("Other Players Color", "crossbowPred_colorRed_otherPlayers", "crossbowPred_colorGreen_otherPlayers", "crossbowPred_colorBlue_otherPlayers")
-        panel:ColorPicker("Bolt Position Color", "crossbowPred_colorRed_boltPos", "crossbowPred_colorGreen_boltPos", "crossbowPred_colorBlue_boltPos")
+        panelElements["color_trajectory"] = panel:ColorPicker("Trajectory Color", "crossbowPred_colorRed_predPos", "crossbowPred_colorGreen_predPos", "crossbowPred_colorBlue_predPos")
+        panelElements["color_actual_trajectory"] = panel:ColorPicker("Actual Trajectory Color", "crossbowPred_colorRed_actualPredPos", "crossbowPred_colorGreen_actualPredPos", "crossbowPred_colorBlue_actualPredPos")
+        panelElements["color_hit_position"] = panel:ColorPicker("Hit Position Color", "crossbowPred_colorRed_hitPos", "crossbowPred_colorGreen_hitPos", "crossbowPred_colorBlue_hitPos")
+        panelElements["color_last_position"] = panel:ColorPicker("Last Position Color", "crossbowPred_colorRed_lastPos", "crossbowPred_colorGreen_lastPos", "crossbowPred_colorBlue_lastPos")
+        panelElements["color_other_players"] = panel:ColorPicker("Other Players Color", "crossbowPred_colorRed_otherPlayers", "crossbowPred_colorGreen_otherPlayers", "crossbowPred_colorBlue_otherPlayers")
+        panelElements["color_bolt_position"] = panel:ColorPicker("Bolt Position Color", "crossbowPred_colorRed_boltPos", "crossbowPred_colorGreen_boltPos", "crossbowPred_colorBlue_boltPos")
 
         panel:Help("\n--- Simulation Settings ---")
-
-        panel:CheckBox("Use Server's Tickrate", "crossbowPred_serverTickPred")
+        panelElements["server_tickrate"] = panel:CheckBox("Use Server's Tickrate", "crossbowPred_serverTickPred")
         panel:ControlHelp(vars.crossbowPred_serverTickPred.info)
-        panel:NumSlider("Simulation Step Interval", "crossbowPred_simstep", 1, 600, 0)
+        panelElements["sim_step_interval"] = panel:NumSlider("Simulation Step Interval", "crossbowPred_simstep", 1, 600, 0)
         panel:ControlHelp(vars.crossbowPred_simstep.info)
-        panel:NumSlider("Simulation Time", "crossbowPred_simtime", 0, 30)
+        panelElements["sim_time"] = panel:NumSlider("Simulation Time", "crossbowPred_simtime", 0, 30, 1)
         panel:ControlHelp(vars.crossbowPred_simtime.info)
-        panel:NumSlider("Max Simulations", "crossbowPred_maxsim", 0, 15, 0)
+        panelElements["max_simulations"] = panel:NumSlider("Max Simulations", "crossbowPred_maxsim", 0, 15, 0)
         panel:ControlHelp(vars.crossbowPred_maxsim.info)
 
-
         panel:Help("\n--- Visual Settings ---")
-        panel:CheckBox("Follow Bolt", "crossbowPred_followBolt")
+        panelElements["follow_bolt"] = panel:CheckBox("Follow Bolt", "crossbowPred_followBolt")
         panel:ControlHelp(vars.crossbowPred_followBolt.info)
-        panel:CheckBox("Follow Bolt Popout Box", "crossbowPred_followBolt_popoutBox")
-        panel:ControlHelp(vars.crossbowPred_followBolt_popoutBox.info)
-        panel:CheckBox("Restore View Angles", "crossbowPred_followBolt_restoredViewAngles")
+        panelElements["restore_view_angles"] = panel:CheckBox("Restore View Angles", "crossbowPred_followBolt_restoredViewAngles")
         panel:ControlHelp(vars.crossbowPred_followBolt_restoredViewAngles.info)
-        panel:NumSlider("Follow Bolt Offset X", "crossbowPred_followBoltOffsetX", -200, 200)
+        panelElements["follow_bolt_popout_box"] = panel:CheckBox("Follow Bolt Popout Box", "crossbowPred_followBolt_popoutBox")
+        panel:ControlHelp(vars.crossbowPred_followBolt_popoutBox.info)
+
+        panel:Help("\n--- Position Offsets---")
+
+        panelElements["follow_bolt_offset_x"] = panel:NumSlider("Follow Bolt Offset X", "crossbowPred_followBoltOffsetX", -200, 200, 1)
         panel:ControlHelp(vars.crossbowPred_followBoltOffsetX.info)
-        panel:NumSlider("Follow Bolt Offset Y", "crossbowPred_followBoltOffsetY", -200, 200)
+        panelElements["follow_bolt_offset_y"] = panel:NumSlider("Follow Bolt Offset Y", "crossbowPred_followBoltOffsetY", -200, 200, 1)
         panel:ControlHelp(vars.crossbowPred_followBoltOffsetY.info)
-        panel:NumSlider("Follow Bolt Offset Z", "crossbowPred_followBoltOffsetZ", -200, 200)
+        panelElements["follow_bolt_offset_z"] = panel:NumSlider("Follow Bolt Offset Z", "crossbowPred_followBoltOffsetZ", -200, 200, 1)
         panel:ControlHelp(vars.crossbowPred_followBoltOffsetZ.info)
-        panel:CheckBox("Show Predicted Position", "crossbowPred_showPredictedPos")
+
+        panel:Help("\n--- Angle Offsets (Popout Box Only) ---")
+
+        panelElements["follow_bolt_angle_offset_pitch"] = panel:NumSlider("Follow Bolt Angle Offset Pitch", "crossbowPred_followBoltAngleOffsetPitch", -180, 180, 1)
+        panel:ControlHelp(vars.crossbowPred_followBoltAngleOffsetPitch.info)
+        panelElements["follow_bolt_angle_offset_yaw"] = panel:NumSlider("Follow Bolt Angle Offset Yaw", "crossbowPred_followBoltAngleOffsetYaw", -180, 180, 1)
+        panel:ControlHelp(vars.crossbowPred_followBoltAngleOffsetYaw.info)
+        panelElements["follow_bolt_angle_offset_roll"] = panel:NumSlider("Follow Bolt Angle Offset Roll", "crossbowPred_followBoltAngleOffsetRoll", -180, 180, 1)
+        panel:ControlHelp(vars.crossbowPred_followBoltAngleOffsetRoll.info)
+        panelElements["follow_bolt_fov"] = panel:NumSlider("Follow Bolt FOV", "crossbowPred_followBolt_fov", 1, 120, 0)
+        panel:ControlHelp(vars.crossbowPred_followBolt_fov.info)
+
+        panelElements["show_predicted_position"] = panel:CheckBox("Show Predicted Position", "crossbowPred_showPredictedPos")
         panel:ControlHelp(vars.crossbowPred_showPredictedPos.info)
-        panel:CheckBox("Show Hit Position", "crossbowPred_showHitPos")
+        panelElements["show_hit_position"] = panel:CheckBox("Show Hit Position", "crossbowPred_showHitPos")
         panel:ControlHelp(vars.crossbowPred_showHitPos.info)
-        panel:CheckBox("Show Last Position", "crossbowPred_showLastPos")
+        panelElements["show_last_position"] = panel:CheckBox("Show Last Position", "crossbowPred_showLastPos")
         panel:ControlHelp(vars.crossbowPred_showLastPos.info)
-        panel:CheckBox("Show Actual Position", "crossbowPred_showActualPos")
+        panelElements["show_actual_position"] = panel:CheckBox("Show Actual Position", "crossbowPred_showActualPos")
         panel:ControlHelp(vars.crossbowPred_showActualPos.info)
-        panel:CheckBox("Show Info", "crossbowPred_showInfo")
+        panelElements["show_info"] = panel:CheckBox("Show Info", "crossbowPred_showInfo")
         panel:ControlHelp(vars.crossbowPred_showInfo.info)
 
         panel:Help("\n--- Network Settings ---")
-        panel:CheckBox("Send Position", "crossbowPred_sendPos")
+        panelElements["send_position"] = panel:CheckBox("Send Position", "crossbowPred_sendPos")
         panel:ControlHelp(vars.crossbowPred_sendPos.info)
-        panel:CheckBox("Receive Position", "crossbowPred_receivePos")
+        panelElements["receive_position"] = panel:CheckBox("Receive Position", "crossbowPred_receivePos")
         panel:ControlHelp(vars.crossbowPred_receivePos.info)
+
+        panel:Help("\n--- Reset Settings ---")
+        panelElements["reset_settings"] = panel:Button("Reset Settings", "crossbowPred_resetSettings", 1)
+
+        toolMenuOpened = true
     end)
 end)
 
@@ -191,6 +232,10 @@ for k, v in pairs(vars) do
         CreateClientConVar(k, v.value, true, false, v.info)
     end
 end
+
+CreateClientConVar("crossbowPred_resetSettings", 0, true, false, "Resets all settings to default.")
+
+
 
 hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
     local ply = LocalPlayer()
@@ -561,6 +606,9 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
             draw.SimpleText(text2, "DermaLarge", x, 100, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
 
             if GetConVar("crossbowPred_followBolt_popoutBox"):GetBool() then
+                if toolMenuOpened then
+                    panelElements["follow_bolt"]:SetValue(false)
+                end
                 for ent, data in pairs(boltSims) do 
                     data.entity = ent 
                     if IsValid(ent) then
@@ -580,6 +628,13 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
                             GetConVar("crossbowPred_followBoltOffsetY"):GetInt(),
                             GetConVar("crossbowPred_followBoltOffsetZ"):GetInt()
                         )
+
+                        local angleOffset = Angle(
+                            GetConVar("crossbowPred_followBoltAngleOffsetPitch"):GetInt(),
+                            GetConVar("crossbowPred_followBoltAngleOffsetYaw"):GetInt(),
+                            GetConVar("crossbowPred_followBoltAngleOffsetRoll"):GetInt()
+                        )
+
                 
 
                         local worldOffset = ent:LocalToWorld(fixedOffset)
@@ -588,15 +643,25 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
 
                         local camAngles = (ent:GetPos() - movementToOrigin):Angle()
 
+                        local camFov = GetConVar("crossbowPred_followBolt_fov"):GetInt()
+
+                        camAngles:RotateAroundAxis(camAngles:Right(), angleOffset.p)
+                        camAngles:RotateAroundAxis(camAngles:Up(), angleOffset.y)
+                        camAngles:RotateAroundAxis(camAngles:Forward(), angleOffset.r)
+
+
                         -- TODO: we add a bit of animation to camAngles
+
+
 
 
 
                         render.RenderView({
                             origin = movementToOrigin,
                             angles = camAngles,
-                            x = 0,
-                            y = 0,
+                            fov = camFov,
+                            x = 5,
+                            y = 5,
                             w = 512,
                             h = 512,
                             drawhud = false,
@@ -625,6 +690,11 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
             if GetConVar("crossbowPred_enabled"):GetBool() == false then return end
             if GetConVar("crossbowPred_followBolt"):GetBool() == false then return end
             if GetConVar("crossbowPred_followBolt_popoutBox"):GetBool() then return end
+
+            if toolMenuOpened then
+                panelElements["follow_bolt_popout_box"]:SetValue(false)
+            end
+
             for ent, data in pairs(boltSims) do
                 data.entity = ent
                 if IsValid(ent) then
@@ -639,10 +709,12 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
                         
                         local worldOffset = ent:LocalToWorld(fixedOffset)
 
+                        local camFov = GetConVar("crossbowPred_followBolt_fov"):GetInt()
+
                         return {
                             origin = currentPos + (worldOffset - ent:GetPos()),
                             angles = angles,
-                            fov = fov,
+                            fov = camFov,
                             drawviewer = true
                         }
 
@@ -664,14 +736,7 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
         end)
     
     
-    
-    
-        -- check if there are any old bolt simulations that need to be removed
-    
-    
-    
-    
-    
+
         if GetConVar("crossbowPred_receivePos"):GetBool() then
             for id, pos in pairs(net_boltSims) do
                 render.DrawWireframeBox(pos, Angle(0, 0, 0), Vector(-15,-15,-15), Vector(15,15,15), Color(
@@ -682,6 +747,18 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
             end
         end
     
+        if GetConVar("crossbowPred_resetSettings"):GetBool() then
+            for k, v in pairs(vars) do
+                if v.subValue then
+                    for subK, subV in pairs(v.subValues) do
+                        RunConsoleCommand(k .. "_" .. subK, subV)
+                    end
+                else
+                    RunConsoleCommand(k, v.value)
+                end
+            end
+            RunConsoleCommand("crossbowPred_resetSettings", 0)
+        end
     
     end)
     
