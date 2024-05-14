@@ -6,6 +6,7 @@ hook.Remove("KeyPress", "startPersist")
 hook.Remove("CalcView", "MainCalcView")
 hook.Remove("PopulateToolMenu", "crossbowSettings")
 hook.Remove("InitPostEntity", "CrossbowPredictionInit")
+hook.Remove("CalcView", "RTCalcView")
 
 
 -----------------------------------------------------
@@ -77,6 +78,10 @@ local vars = {
         value = 0,
         info = "Pops out a box showing the camera that is following the bolt."
     },
+    crossbowPred_followBolt_restoredViewAngles = {
+        value = 0,
+        info = "Restores your view angles after the bolt is removed from the world."
+    },
     crossbowPred_followBoltOffsetX = {
         value = 0,
         info = "The offset of the bolt on the X axis."
@@ -136,9 +141,9 @@ hook.Add("PopulateToolMenu", "crossbowSettings", function()
 
         panel:CheckBox("Use Server's Tickrate", "crossbowPred_serverTickPred")
         panel:ControlHelp(vars.crossbowPred_serverTickPred.info)
-        panel:NumSlider("Simulation Step Interval", "crossbowPred_simstep", 1, 360, 0)
+        panel:NumSlider("Simulation Step Interval", "crossbowPred_simstep", 1, 600, 0)
         panel:ControlHelp(vars.crossbowPred_simstep.info)
-        panel:NumSlider("Simulation Time", "crossbowPred_simtime", 0, 15)
+        panel:NumSlider("Simulation Time", "crossbowPred_simtime", 0, 30)
         panel:ControlHelp(vars.crossbowPred_simtime.info)
         panel:NumSlider("Max Simulations", "crossbowPred_maxsim", 0, 15, 0)
         panel:ControlHelp(vars.crossbowPred_maxsim.info)
@@ -149,11 +154,13 @@ hook.Add("PopulateToolMenu", "crossbowSettings", function()
         panel:ControlHelp(vars.crossbowPred_followBolt.info)
         panel:CheckBox("Follow Bolt Popout Box", "crossbowPred_followBolt_popoutBox")
         panel:ControlHelp(vars.crossbowPred_followBolt_popoutBox.info)
-        panel:NumSlider("Follow Bolt Offset X", "crossbowPred_followBoltOffsetX", -100, 100)
+        panel:CheckBox("Restore View Angles", "crossbowPred_followBolt_restoredViewAngles")
+        panel:ControlHelp(vars.crossbowPred_followBolt_restoredViewAngles.info)
+        panel:NumSlider("Follow Bolt Offset X", "crossbowPred_followBoltOffsetX", -200, 200)
         panel:ControlHelp(vars.crossbowPred_followBoltOffsetX.info)
-        panel:NumSlider("Follow Bolt Offset Y", "crossbowPred_followBoltOffsetY", -100, 100)
+        panel:NumSlider("Follow Bolt Offset Y", "crossbowPred_followBoltOffsetY", -200, 200)
         panel:ControlHelp(vars.crossbowPred_followBoltOffsetY.info)
-        panel:NumSlider("Follow Bolt Offset Z", "crossbowPred_followBoltOffsetZ", -100, 100)
+        panel:NumSlider("Follow Bolt Offset Z", "crossbowPred_followBoltOffsetZ", -200, 200)
         panel:ControlHelp(vars.crossbowPred_followBoltOffsetZ.info)
         panel:CheckBox("Show Predicted Position", "crossbowPred_showPredictedPos")
         panel:ControlHelp(vars.crossbowPred_showPredictedPos.info)
@@ -203,7 +210,6 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
             followBolt = GetConVar("crossbowPred_followBolt"):GetBool(),
             completionTime = 0,
             hitEntity = "Nothing",
-            savedViewAngle = Angle(0, 0, 0),
         },
         
     }
@@ -213,6 +219,9 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
     
     }
     
+    local plyViewAngles = Angle(0, 0, 0)
+    local shouldSaveViewAngles = true
+    local restoreViewAngles = false
     
     
     
@@ -231,6 +240,7 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
                 completionTime = 0,
                 currentPos = ent:GetPos(),
             }
+
         end
     end)
     
@@ -239,6 +249,11 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
             print("Removed bolt")
             boltSims[ent] = nil 
             boltSims["simulated_shot"].persist = false
+            restoreViewAngles = true
+
+            timer.Simple(0.1, function()
+                shouldSaveViewAngles = true
+            end)
         end
     end)
     
@@ -246,8 +261,9 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
     hook.Add("KeyPress", "startPersist", function(ply, key)
         local data = boltSims["simulated_shot"]
         if key == IN_ATTACK then
-         data.persist = true
-         boltSims["simulated_shot"].completionTime = SysTime()
+            data.persist = true
+            boltSims["simulated_shot"].completionTime = SysTime()
+            shouldSaveViewAngles = false
         end
     end)
     
@@ -287,6 +303,10 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
         local wep = ply:GetActiveWeapon()
         local shootPos = ply:GetShootPos()
         local shootVel = ply:GetAimVector() * boltVel
+
+        if shouldSaveViewAngles then
+            plyViewAngles = ply:EyeAngles()
+        end
     
         
     
@@ -307,9 +327,6 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
     
     
             local function bounceBolt(vel, normal, predictedPos, timeStep)
-
-                -- https://github.com/ValveSoftware/source-sdk-2013/blob/0d8dceea4310fde5706b3ce1c70609d72a38efdf/sp/src/game/server/hl2/weapon_crossbow.cpp#L322
-                -- :D
     
                 local data = boltSims[ent]
                 local speed = vel:Length()
@@ -461,7 +478,6 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
                     followBolt = true ,
                     completionTime = 0,
                     hitEntity = "Nothing",
-                    savedViewAngle = ply:EyeAngles(),
                 }
                 simPhys(shootVel, shootPos, "simulated_shot", simTime)
             end
@@ -479,7 +495,6 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
                 followBolt = true ,
                 completionTime = 0,
                 hitEntity = "Nothing",
-                savedViewAngle = ply:EyeAngles(),
             }
         end
     
@@ -522,7 +537,15 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
                 GetConVar("crossbowPred_colorBlue_lastPos"):GetInt()
             ), false)
         end
-    
+
+        local rt = GetRenderTarget("crossbowPredRT", 512, 512)
+        local rtMat = CreateMaterial("crossbowPredRtMat", "UnlitGeneric", {
+            ["$basetexture"] = rt:GetName(),
+        })
+
+
+
+
     
         hook.Add("HUDPaint", "MainHudPaint", function()
             if not (wep:GetClass() == "weapon_crossbow") then return end
@@ -536,26 +559,93 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
             -- put at top center of screen
             draw.SimpleText(text, "DermaLarge", x, 50, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
             draw.SimpleText(text2, "DermaLarge", x, 100, Color(255, 255, 255), TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
+
+            if GetConVar("crossbowPred_followBolt_popoutBox"):GetBool() then
+                for ent, data in pairs(boltSims) do 
+                    data.entity = ent 
+                    if IsValid(ent) then
+                        render.PushRenderTarget(rt)
+                        
+                        cam.Start({type="3D"})
+                        local currentPos = ent:GetPos()
+                        local currentVel = ent:GetVelocity()
+                        local speed = currentVel:Length()
+                
+                
+                        local normalizedVel = currentVel:GetNormalized()
+                        local dynamicOffset = normalizedVel * -20
+                
+                        local fixedOffset = Vector(
+                            GetConVar("crossbowPred_followBoltOffsetX"):GetInt(),
+                            GetConVar("crossbowPred_followBoltOffsetY"):GetInt(),
+                            GetConVar("crossbowPred_followBoltOffsetZ"):GetInt()
+                        )
+                
+
+                        local worldOffset = ent:LocalToWorld(fixedOffset)
+
+                        local movementToOrigin = currentPos + dynamicOffset + (worldOffset - ent:GetPos())
+
+                        local camAngles = (ent:GetPos() - movementToOrigin):Angle()
+
+                        -- TODO: we add a bit of animation to camAngles
+
+
+
+                        render.RenderView({
+                            origin = movementToOrigin,
+                            angles = camAngles,
+                            x = 0,
+                            y = 0,
+                            w = 512,
+                            h = 512,
+                            drawhud = false,
+                            drawmonitors = false,
+                            drawviewmodel = false,
+                            dopostprocess = false,
+                        })
+                        cam.End()
+
+                        render.PopRenderTarget()
+
+                        surface.SetDrawColor(255, 255, 255, 255)
+                        surface.SetMaterial(rtMat)
+                        surface.DrawTexturedRect(0, 0, 512, 512)
+
+                        
+                    end
+                end
+            end
+
         end)
+
         
     
         hook.Add("CalcView", "MainCalcView", function(ply, pos, angles, fov)
             if GetConVar("crossbowPred_enabled"):GetBool() == false then return end
             if GetConVar("crossbowPred_followBolt"):GetBool() == false then return end
-            for ent, data in pairs(boltSims) do 
+            if GetConVar("crossbowPred_followBolt_popoutBox"):GetBool() then return end
+            for ent, data in pairs(boltSims) do
                 data.entity = ent
                 if IsValid(ent) then
-                    data.currentPos = ent:GetPos()
+                    local currentPos = ent:GetPos()
+
                     if boltSims["simulated_shot"].persist and boltSims["simulated_shot"].followBolt then
+                        local fixedOffset = Vector(
+                            GetConVar("crossbowPred_followBoltOffsetX"):GetInt(),
+                            GetConVar("crossbowPred_followBoltOffsetY"):GetInt(),
+                            GetConVar("crossbowPred_followBoltOffsetZ"):GetInt()
+                        )
+                        
+                        local worldOffset = ent:LocalToWorld(fixedOffset)
+
                         return {
-                            origin = data.currentPos + Vector(
-                                GetConVar("crossbowPred_followBoltOffsetX"):GetInt(),
-                                GetConVar("crossbowPred_followBoltOffsetY"):GetInt(),
-                                GetConVar("crossbowPred_followBoltOffsetZ"):GetInt()
-                            ),
+                            origin = currentPos + (worldOffset - ent:GetPos()),
                             angles = angles,
-                            fov = fov
+                            fov = fov,
+                            drawviewer = true
                         }
+
                     else
                         return {
                             origin = pos,
@@ -563,6 +653,12 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
                             fov = fov
                         }
                     end
+                end
+            end
+            if GetConVar("crossbowPred_followBolt_restoredViewAngles"):GetBool() then
+                if restoreViewAngles then
+                    ply:SetEyeAngles(plyViewAngles)
+                    restoreViewAngles = false
                 end
             end
         end)
