@@ -372,30 +372,45 @@ hook.Add("InitPostEntity", "CrossbowPredictionInit", function()
     
     
             local function bounceBolt(vel, normal, predictedPos, timeStep)
-    
-                local data = boltSims[ent]
-                local speed = vel:Length()
-                local vecDir = vel:GetNormalized()
-                local dot = vecDir:Dot(-normal)
             
-                if dot < 0.5 and speed > 100 then
-                    local reflection = 2 * normal * dot + vecDir
-                    
-                    local newVel = (reflection * speed) * 0.75
-    
-                    
-                    if not data.fullGravityApplied then
-                        data.gravity = physenv.GetGravity()
-                        data.fullGravityApplied = true  
-                    end
-    
-                    
-                    local newPos = predictedPos + newVel * timeStep
-    
-                    return newPos, newVel, true
-                else
+                local data = boltSims[ent]
+                if not data then
                     return predictedPos, vel, false
                 end
+            
+                local speed = vel:Length()
+            
+                if speed <= 100 then
+                    return predictedPos, vel, false
+                end
+            
+                local vecDir = vel:GetNormalized()
+                local hitNormal = normal:GetNormalized()
+            
+
+                local impactDot = math.abs(vecDir:Dot(hitNormal))
+            
+
+                if impactDot < 0.5 then
+            
+
+                    local reflection = vecDir - 2 * vecDir:Dot(hitNormal) * hitNormal
+                    reflection:Normalize()
+            
+
+                    local retention = 1.0 - (impactDot * 0.30)
+            
+                    local newVel = reflection * speed * retention
+            
+                    if not data.fullGravityApplied then
+                        data.gravity = physenv.GetGravity()
+                        data.fullGravityApplied = true
+                    end
+            
+                    return predictedPos, newVel, true
+                end
+            
+                return predictedPos, vel, false
             end
     
             
